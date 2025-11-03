@@ -1,1 +1,1 @@
-OPEN FI Data Analytics - API DATA IGESTION To GOLD LAYER DATA COMSUMPTION USING DBT, DATABRICKS AND PYTHON
+API Data Ingestion to Gold Layer Data Consumption for OPEN FI Data Analytics Using dbt, Databricks, and Python
