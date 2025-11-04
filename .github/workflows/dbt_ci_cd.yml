@@ -1,0 +1,306 @@
+name: dbt CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - dev      # CI: Test against stage when PR to dev
+      - main     # CD: Test against prod when PR to main
+    paths:
+      - 'dbt_f1_data_analytics/**'
+      - '.github/workflows/dbt_ci_cd.yml'
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target environment (stage or prod)'
+        required: true
+        default: 'stage'
+        type: choice
+        options:
+          - stage
+          - prod
+
+jobs:
+  # =========================================================================
+  # CI JOB: Runs when PR is opened to 'dev' branch
+  # Tests against stage_f1_data_analytics catalog
+  # =========================================================================
+  ci_test_stage:
+    name: CI - Test against Stage
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'dev' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'stage')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dbt and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-databricks>=1.10.0
+          pip install dbt-utils
+
+      - name: Verify dbt installation
+        run: |
+          dbt --version
+          echo "dbt installed successfully"
+
+      - name: dbt deps (Install dbt packages)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt deps
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+      - name: dbt debug (Test connection)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt debug --target stage
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: stage
+
+      - name: dbt compile (Check SQL syntax)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt compile --target stage
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: stage
+
+      - name: dbt build (Build models and run tests)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt build --target stage
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: stage
+
+      - name: Generate dbt docs
+        if: always()
+        run: |
+          cd dbt_f1_data_analytics
+          dbt docs generate --target stage
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: stage
+
+      - name: Upload dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-stage-artifacts
+          path: |
+            dbt_f1_data_analytics/target/manifest.json
+            dbt_f1_data_analytics/target/catalog.json
+            dbt_f1_data_analytics/target/run_results.json
+            dbt_f1_data_analytics/logs/dbt.log
+          retention-days: 30
+
+      - name: Post PR comment with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runResults = JSON.parse(fs.readFileSync('dbt_f1_data_analytics/target/run_results.json', 'utf8'));
+
+            const summary = runResults.results.reduce((acc, result) => {
+              acc[result.status] = (acc[result.status] || 0) + 1;
+              return acc;
+            }, {});
+
+            const comment = `## CI Test Results - Stage Environment
+
+            **Target Catalog:** \`stage_f1_data_analytics\`
+            **Status:** ${runResults.results.every(r => r.status === 'success') ? '✅ PASSED' : '❌ FAILED'}
+
+            ### Summary
+            - ✅ Success: ${summary.success || 0}
+            - ❌ Error: ${summary.error || 0}
+            - ⚠️ Skipped: ${summary.skipped || 0}
+
+            ### Details
+            Total models/tests executed: ${runResults.results.length}
+
+            <details>
+            <summary>View all results</summary>
+
+            ${runResults.results.map(r => `- ${r.status === 'success' ? '✅' : '❌'} ${r.unique_id}`).join('\n')}
+
+            </details>
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # =========================================================================
+  # CD JOB: Runs when PR is opened from 'dev' to 'main'
+  # Tests against prod_f1_data_analytics catalog (validation only)
+  # =========================================================================
+  cd_test_prod:
+    name: CD - Test against Prod
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dbt and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-databricks>=1.10.0
+          pip install dbt-utils
+
+      - name: Verify dbt installation
+        run: |
+          dbt --version
+          echo "dbt installed successfully"
+
+      - name: dbt deps (Install dbt packages)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt deps
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+      - name: dbt debug (Test connection)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt debug --target prod
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: prod
+
+      - name: dbt compile (Check SQL syntax)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt compile --target prod
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: prod
+
+      - name: dbt build (Build models and run tests)
+        run: |
+          cd dbt_f1_data_analytics
+          dbt build --target prod
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: prod
+
+      - name: Generate dbt docs
+        if: always()
+        run: |
+          cd dbt_f1_data_analytics
+          dbt docs generate --target prod
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_TARGET: prod
+
+      - name: Upload dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-prod-artifacts
+          path: |
+            dbt_f1_data_analytics/target/manifest.json
+            dbt_f1_data_analytics/target/catalog.json
+            dbt_f1_data_analytics/target/run_results.json
+            dbt_f1_data_analytics/logs/dbt.log
+          retention-days: 90
+
+      - name: Post PR comment with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runResults = JSON.parse(fs.readFileSync('dbt_f1_data_analytics/target/run_results.json', 'utf8'));
+
+            const summary = runResults.results.reduce((acc, result) => {
+              acc[result.status] = (acc[result.status] || 0) + 1;
+              return acc;
+            }, {});
+
+            const comment = `## CD Test Results - Production Environment
+
+            **Target Catalog:** \`prod_f1_data_analytics\`
+            **Status:** ${runResults.results.every(r => r.status === 'success') ? '✅ PASSED - Ready to merge!' : '❌ FAILED - Do not merge!'}
+
+            ### Summary
+            - ✅ Success: ${summary.success || 0}
+            - ❌ Error: ${summary.error || 0}
+            - ⚠️ Skipped: ${summary.skipped || 0}
+
+            ### Details
+            Total models/tests executed: ${runResults.results.length}
+
+            ${runResults.results.every(r => r.status === 'success')
+              ? '🎉 All tests passed! This PR is ready to be merged to production.'
+              : '⚠️ **WARNING:** Some tests failed. Review the errors before merging to production.'}
+
+            <details>
+            <summary>View all results</summary>
+
+            ${runResults.results.map(r => `- ${r.status === 'success' ? '✅' : '❌'} ${r.unique_id}`).join('\n')}
+
+            </details>
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Check if all tests passed
+        run: |
+          cd dbt_f1_data_analytics
+          if [ -f "target/run_results.json" ]; then
+            ERRORS=$(cat target/run_results.json | jq '[.results[] | select(.status == "error")] | length')
+            if [ "$ERRORS" -gt 0 ]; then
+              echo "❌ $ERRORS test(s) failed. Production deployment not recommended!"
+              exit 1
+            else
+              echo "✅ All tests passed. Safe to merge to production."
+            fi
+          fi

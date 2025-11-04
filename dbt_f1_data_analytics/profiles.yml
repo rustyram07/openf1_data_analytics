@@ -1,0 +1,29 @@
+dbt_f1_data_analytics:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: databricks
+      catalog: dev_f1_data_analytics
+      schema: default
+      host: "{{ env_var('DBT_DATABRICKS_HOST', 'dbc-6095b2ae-cb87.cloud.databricks.com') }}"
+      http_path: "{{ env_var('DBT_DATABRICKS_HTTP_PATH', '/sql/1.0/warehouses/b4c47257d66c0fe9') }}"
+      token: "{{ env_var('DBT_DATABRICKS_TOKEN') }}"
+      threads: 4
+
+    stage:
+      type: databricks
+      catalog: stage_f1_data_analytics
+      schema: stage
+      host: "{{ env_var('DBT_DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DBT_DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DBT_DATABRICKS_TOKEN') }}"
+      threads: 6
+
+    prod:
+      type: databricks
+      catalog: prod_f1_data_analytics
+      schema: prod
+      host: "{{ env_var('DBT_DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DBT_DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DBT_DATABRICKS_TOKEN') }}"
+      threads: 8

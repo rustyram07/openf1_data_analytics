@@ -52,18 +52,15 @@ venv/
 env/
 ENV/
 
-# DBT - Database credentials and personal profiles
-dbt_f1_data_analytics/profiles.yml
-profiles.yml
-
-# DBT artifacts (if not already present)
+# DBT artifacts
 dbt_f1_data_analytics/target/
 dbt_f1_data_analytics/dbt_packages/
 dbt_f1_data_analytics/logs/
 dbt_f1_data_analytics/dbt_modules/
 
+# DBT local helper script (contains hardcoded tokens - do not commit!)
+dbt_f1_data_analytics/run_dbt.sh
+
 # Backup scripts
 01backupscript/local_test_data/
 01backupscript/
-dbt_f1_data_analytics/run_dbt.sh
-dbt_f1_data_analytics/run_dbt.sh

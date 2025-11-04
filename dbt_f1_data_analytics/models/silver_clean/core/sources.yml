@@ -14,15 +14,34 @@ sources:
             tests:
               - not_null
               - unique
-
           - name: session_name
             description: Name of the session (e.g., Race, Qualifying)
-
+          - name: session_type
+            description: Type of session
           - name: date_start
             description: Session start timestamp
-
+          - name: date_end
+            description: Session end timestamp
+          - name: gmt_offset
+            description: GMT offset for the session location
+          - name: meeting_key
+            description: Unique identifier for the meeting/weekend
           - name: location
-            description: Circuit location
+            description: Circuit location name
+          - name: country_key
+            description: Country identifier
+          - name: country_code
+            description: ISO country code
+          - name: country_name
+            description: Full country name
+          - name: circuit_key
+            description: Circuit identifier
+          - name: circuit_short_name
+            description: Short name of the circuit
+          - name: year
+            description: Year of the session
+          - name: _ingestion_timestamp
+            description: Timestamp when data was ingested into bronze layer
 
       - name: bronze_drivers
         description: Raw drivers data from OpenF1 API
@@ -31,17 +50,32 @@ sources:
             description: Session identifier
             tests:
               - not_null
-
+          - name: meeting_key
+            description: Meeting identifier
           - name: driver_number
             description: Driver's racing number
             tests:
               - not_null
-
+          - name: broadcast_name
+            description: Name used for broadcasting
           - name: full_name
             description: Driver's full name
-
+          - name: name_acronym
+            description: Three-letter driver acronym
           - name: team_name
             description: Team name
+          - name: team_colour
+            description: Team color hex code
+          - name: first_name
+            description: Driver's first name
+          - name: last_name
+            description: Driver's last name
+          - name: headshot_url
+            description: URL to driver headshot image
+          - name: country_code
+            description: Driver's country code
+          - name: _ingestion_timestamp
+            description: Timestamp when data was ingested into bronze layer
 
       - name: bronze_laps
         description: Raw lap timing data from OpenF1 API
@@ -50,38 +84,77 @@ sources:
             description: Session identifier
             tests:
               - not_null
-
+          - name: meeting_key
+            description: Meeting identifier
           - name: driver_number
             description: Driver's racing number
             tests:
               - not_null
-
           - name: lap_number
             description: Lap number
             tests:
               - not_null
-
+          - name: date_start
+            description: Lap start timestamp
           - name: lap_duration
             description: Total lap time in seconds
+          - name: is_pit_out_lap
+            description: Flag indicating if lap is a pit out lap
+          - name: duration_sector_1
+            description: Sector 1 time in seconds
+          - name: duration_sector_2
+            description: Sector 2 time in seconds
+          - name: duration_sector_3
+            description: Sector 3 time in seconds
+          - name: i1_speed
+            description: Intermediate 1 speed trap (km/h)
+          - name: i2_speed
+            description: Intermediate 2 speed trap (km/h)
+          - name: st_speed
+            description: Speed trap speed (km/h)
+          - name: segments_sector_1
+            description: JSON array of segment data for sector 1
+          - name: segments_sector_2
+            description: JSON array of segment data for sector 2
+          - name: segments_sector_3
+            description: JSON array of segment data for sector 3
+          - name: batch_day
+            description: Partition key - day of batch processing
+          - name: session_name
+            description: Name of the session
+          - name: _ingestion_timestamp
+            description: Timestamp when data was ingested into bronze layer
 
       - name: bronze_locations
-        description: Raw location telemetry data from OpenF1 API
+        description: Raw location telemetry data from OpenF1 API (largest table - GPS tracking points)
         columns:
           - name: session_key
             description: Session identifier
             tests:
               - not_null
-
+          - name: meeting_key
+            description: Meeting identifier
           - name: driver_number
             description: Driver's racing number
             tests:
               - not_null
-
           - name: date
             description: Timestamp of the location data point
-
+            tests:
+              - not_null
           - name: x
-            description: X coordinate position
-
+            description: X coordinate position on track
+            tests:
+              - not_null
           - name: y
-            description: Y coordinate position
+            description: Y coordinate position on track
+            tests:
+              - not_null
+          - name: z
+            description: Z coordinate position (elevation)
+          - name: batch_day
+            description: Partition key - day of batch processing
+          - name: session_name
+            description: Name of the session
+          - name: _ingestion_timestamp
+            description: Timestamp when data was ingested into bronze layer
