@@ -386,7 +386,6 @@ Dashboards / Analytics / ML Models
 - Gold Core: 35 PASS, 0 FAIL
 - Gold Marts: All tests pass
 
-For detailed build information, see [FINAL_BUILD_SUMMARY.md](dbt_f1_data_analytics/FINAL_BUILD_SUMMARY.md)
 
 ---
 
@@ -415,14 +414,6 @@ ZORDER BY (session_key, driver_number, date);
 - Driver vs driver head-to-head
 - Team development over time
 
----
-
-## Contributing
-
-For issues, improvements, or questions:
-1. Review documentation in this repo
-2. Check logs in `dbt_f1_data_analytics/logs/dbt.log`
-3. Validate data using queries in `COMPLETE_VALIDATION.sql`
 
 ---
 
@@ -440,17 +431,6 @@ This project uses data from the OpenF1 API (https://openf1.org/)
 **dbt Version:** 1.10.13
 **Platform:** Databricks Unity Catalog with Delta Tables
 
----
-
-## Quick Links
-
-- **Quick Start:** [QUICK_START.md](QUICK_START.md)
-- **Detailed Guide:** [LOAD_2024_SESSION_GUIDE.md](LOAD_2024_SESSION_GUIDE.md)
-- **Build Summary:** [dbt_f1_data_analytics/FINAL_BUILD_SUMMARY.md](dbt_f1_data_analytics/FINAL_BUILD_SUMMARY.md)
-- **Schema Docs:** [dbt_f1_data_analytics/SCHEMA_STRUCTURE.md](dbt_f1_data_analytics/SCHEMA_STRUCTURE.md)
-- **Validation SQL:** [dbt_f1_data_analytics/COMPLETE_VALIDATION.sql](dbt_f1_data_analytics/COMPLETE_VALIDATION.sql)
-- **Last Session Validation:** [dbt_f1_data_analytics/LAST_SESSION_VALIDATION.sql](dbt_f1_data_analytics/LAST_SESSION_VALIDATION.sql)
-- **Test Analysis:** [dbt_f1_data_analytics/TEST_FIXES.md](dbt_f1_data_analytics/TEST_FIXES.md)
 
 ---
 
