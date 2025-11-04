@@ -22,8 +22,6 @@ SELECT
     session_category,
     date_start,
     date_end,
-    date_start_ts,
-    date_end_ts,
     session_duration_minutes,
     gmt_offset,
     meeting_key,

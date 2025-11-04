@@ -295,10 +295,20 @@ jobs:
           cd dbt_f1_data_analytics
           if [ -f "target/run_results.json" ]; then
             ERRORS=$(cat target/run_results.json | jq '[.results[] | select(.status == "error")] | length')
+            PASSED=$(cat target/run_results.json | jq '[.results[] | select(.status == "success")] | length')
+            SKIPPED=$(cat target/run_results.json | jq '[.results[] | select(.status == "skipped")] | length')
+
+            echo "📊 Test Results Summary:"
+            echo "  ✅ Passed: $PASSED"
+            echo "  ⏭️  Skipped: $SKIPPED"
+            echo "  ❌ Errors: $ERRORS"
+
             if [ "$ERRORS" -gt 0 ]; then
+              echo ""
               echo "❌ $ERRORS test(s) failed. Production deployment not recommended!"
               exit 1
             else
-              echo "✅ All tests passed. Safe to merge to production."
+              echo ""
+              echo "✅ All tests passed (including $SKIPPED skipped). Safe to merge to production."
             fi
           fi
