@@ -67,9 +67,9 @@ SELECT
         WHEN LOWER(team_name) LIKE '%alpine%' THEN 'Alpine'
         WHEN LOWER(team_name) LIKE '%aston martin%' THEN 'Aston Martin'
         WHEN LOWER(team_name) LIKE '%williams%' THEN 'Williams'
-        WHEN LOWER(team_name) LIKE '%alphatauri%' OR LOWER(team_name) LIKE '%rb %' THEN 'AlphaTauri/RB'
-        WHEN LOWER(team_name) LIKE '%alfa romeo%' OR LOWER(team_name) LIKE '%sauber%' THEN 'Alfa Romeo/Sauber'
-        WHEN LOWER(team_name) LIKE '%haas%' THEN 'Haas'
+        WHEN LOWER(team_name) LIKE '%alphatauri%' OR LOWER(team_name) LIKE '%rb %' THEN 'AlphaTauri'
+        WHEN LOWER(team_name) LIKE '%alfa romeo%' OR LOWER(team_name) LIKE '%sauber%' THEN 'Alfa Romeo'
+        WHEN LOWER(team_name) LIKE '%haas%' THEN 'Haas F1 Team'
         ELSE 'Other'
     END AS team_category,
 

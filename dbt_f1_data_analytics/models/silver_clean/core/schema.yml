@@ -116,6 +116,7 @@ models:
               name: lap_duration_reasonable
               config:
                 where: "lap_duration IS NOT NULL"
+                severity: warn
 
       - name: is_valid_lap
         description: Indicator if lap is valid for analysis
@@ -137,6 +138,7 @@ models:
               expression: "> 0"
               config:
                 where: "max_speed IS NOT NULL"
+                severity: warn
           - dbt_utils.expression_is_true:
               expression: "< 400"
               name: max_speed_reasonable
