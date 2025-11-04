@@ -30,6 +30,9 @@ jobs:
     name: CI - Test against Stage
     runs-on: ubuntu-latest
     if: github.base_ref == 'dev' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'stage')
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -162,6 +165,9 @@ jobs:
     name: CD - Test against Prod
     runs-on: ubuntu-latest
     if: github.base_ref == 'main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod')
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout code
