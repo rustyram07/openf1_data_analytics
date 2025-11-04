@@ -45,7 +45,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install dbt-databricks>=1.10.0
-          pip install dbt-utils
 
       - name: Verify dbt installation
         run: |
@@ -178,7 +177,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install dbt-databricks>=1.10.0
-          pip install dbt-utils
 
       - name: Verify dbt installation
         run: |
