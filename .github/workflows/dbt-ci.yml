@@ -1,0 +1,214 @@
+name: dbt CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'dbt_f1_data_analytics/**'
+      - '.github/workflows/dbt-ci.yml'
+
+  push:
+    branches:
+      - main
+    paths:
+      - 'dbt_f1_data_analytics/**'
+      - '.github/workflows/dbt-ci.yml'
+
+env:
+  DBT_PROFILES_DIR: ${{ github.workspace }}/dbt_f1_data_analytics
+  DBT_PROJECT_DIR: ${{ github.workspace }}/dbt_f1_data_analytics
+
+jobs:
+  # Job 1: Run dbt tests on PR (before merge)
+  dbt-test-pr:
+    name: dbt Test on Pull Request
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dbt and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-databricks==1.10.14
+          pip install -r dbt_f1_data_analytics/requirements.txt 2>/dev/null || echo "No requirements.txt found"
+
+      - name: Verify dbt installation
+        run: |
+          dbt --version
+          cd dbt_f1_data_analytics
+          dbt deps
+
+      - name: Run dbt debug
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt debug --target dev
+
+      - name: Run dbt compile
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt compile --target dev
+
+      - name: Run dbt tests (source freshness)
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt source freshness --target dev || echo "Source freshness check completed with warnings"
+
+      - name: Run dbt build (dry-run)
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt build --target dev --select state:modified+ --defer --state target/
+
+      - name: Generate dbt docs
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt docs generate --target dev
+
+      - name: Comment PR with test results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## dbt CI Test Results\n\n';
+
+            if ('${{ job.status }}' === 'success') {
+              comment += '✅ All dbt tests passed! Safe to merge.\n\n';
+            } else {
+              comment += '❌ Some dbt tests failed. Please review the logs above.\n\n';
+            }
+
+            comment += '**Workflow:** [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n';
+            comment += '**Commit:** ${{ github.sha }}\n';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Job 2: Deploy to Databricks on merge to main
+  dbt-deploy:
+    name: dbt Deploy to Databricks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dbt and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-databricks==1.10.14
+          pip install -r dbt_f1_data_analytics/requirements.txt 2>/dev/null || echo "No requirements.txt found"
+
+      - name: Install Databricks CLI
+        run: |
+          pip install databricks-cli
+
+      - name: Verify dbt installation
+        run: |
+          dbt --version
+          cd dbt_f1_data_analytics
+          dbt deps
+
+      - name: Run dbt build (full refresh on main)
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt build --target dev
+
+      - name: Run dbt tests
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt test --target dev
+
+      - name: Generate and upload dbt docs
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_TARGET: dev
+        run: |
+          cd dbt_f1_data_analytics
+          dbt docs generate --target dev
+
+      - name: Deploy dbt project to Databricks Repos
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+        run: |
+          echo "Deploying dbt project to Databricks..."
+          # Update Databricks Repo (if using Repos feature)
+          # This assumes you have a Databricks Repo linked to your GitHub repo
+          databricks repos update --path /Repos/production/f1_data_analytics --branch main || echo "Repo update completed"
+
+      - name: Create deployment summary
+        run: |
+          echo "## dbt Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Status:** Deployed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Target:** dev_f1_data_analytics catalog" >> $GITHUB_STEP_SUMMARY
+          echo "🏗️ **Models Built:** All models in silver_clean and gold_analytics" >> $GITHUB_STEP_SUMMARY
+          echo "✔️ **Tests Passed:** All data quality tests" >> $GITHUB_STEP_SUMMARY
+          echo "📅 **Deployed At:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ dbt Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Failed Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY

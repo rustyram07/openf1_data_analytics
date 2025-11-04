@@ -1,0 +1,151 @@
+version: 2
+
+models:
+  - name: dim_drivers
+    description: Type 2 SCD dimension for Formula 1 drivers tracking team changes
+    columns:
+      - name: driver_key
+        description: Surrogate key for the driver dimension
+        tests:
+          - not_null
+          - unique
+
+      - name: driver_number
+        description: Driver's racing number
+        tests:
+          - not_null
+          - unique
+
+      - name: full_name
+        description: Driver's full name
+        tests:
+          - not_null
+
+      - name: team_name
+        description: Current team name
+        tests:
+          - not_null
+
+      - name: is_current
+        description: Flag indicating if this is the current record
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: valid_from
+        description: Start date of validity period
+        tests:
+          - not_null
+
+      - name: valid_to
+        description: End date of validity period
+
+    # Custom test moved to tests/one_current_record_per_driver.sql
+    # (dbt_utils.expression_is_true doesn't support aggregate functions with GROUP BY)
+
+  - name: dim_sessions
+    description: Dimension table for Formula 1 sessions with enriched date attributes
+    columns:
+      - name: session_dim_key
+        description: Surrogate key for the session dimension
+        tests:
+          - not_null
+          - unique
+
+      - name: session_key
+        description: Natural key for the session
+        tests:
+          - not_null
+          - unique
+
+      - name: session_category
+        description: High-level session category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Race', 'Qualifying', 'Practice', 'Sprint', 'Other']
+
+      - name: is_race
+        description: Flag indicating if this is a race session
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: is_qualifying
+        description: Flag indicating if this is a qualifying session
+        tests:
+          - accepted_values:
+              values: [true, false]
+
+      - name: is_practice
+        description: Flag indicating if this is a practice session
+        tests:
+          - accepted_values:
+              values: [true, false]
+
+      - name: session_year
+        description: Year of the session
+        tests:
+          - not_null
+
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "session_year >= 2020 AND session_year <= YEAR(CURRENT_DATE())"
+          name: reasonable_session_year
+
+  - name: fact_laps
+    description: Central fact table containing lap-level telemetry and timing data
+    columns:
+      - name: lap_key
+        description: Surrogate key for the lap fact
+        tests:
+          - not_null
+          - unique
+
+      - name: session_dim_key
+        description: Foreign key to dim_sessions
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_sessions')
+              field: session_dim_key
+
+      - name: driver_key
+        description: Foreign key to dim_drivers
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_drivers')
+              field: driver_key
+
+      - name: lap_duration
+        description: Total lap time in seconds
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                where: "lap_duration IS NOT NULL AND is_valid_lap = TRUE"
+
+      - name: is_valid_lap
+        description: Flag indicating if lap is valid for analysis
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: is_personal_best_lap
+        description: Flag indicating if this is the driver's fastest lap in the session
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: session_lap_time_rank
+        description: Rank of this lap compared to all laps in the session (by lap time)
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                where: "session_lap_time_rank IS NOT NULL"

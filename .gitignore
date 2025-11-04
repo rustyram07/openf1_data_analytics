@@ -1,0 +1,69 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.databricks
+.env
+.profile.yml
+
+
+# Environment variables
+.env
+.databricks/.databricks.env
+
+# Python version management
+.python-version
+
+# Logs
+logs/
+*.log
+
+# Local test data
+local_test_data/
+
+# IDE settings (personal preferences)
+.vscode/settings.json
+setting.json
+
+# Databricks generated files
+.databricks/bundle/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# DBT - Database credentials and personal profiles
+dbt_f1_data_analytics/profiles.yml
+profiles.yml
+
+# DBT artifacts (if not already present)
+dbt_f1_data_analytics/target/
+dbt_f1_data_analytics/dbt_packages/
+dbt_f1_data_analytics/logs/
+dbt_f1_data_analytics/dbt_modules/
+
+# Backup scripts
+01backupscript/local_test_data/
+01backupscript/
+dbt_f1_data_analytics/run_dbt.sh
+dbt_f1_data_analytics/run_dbt.sh

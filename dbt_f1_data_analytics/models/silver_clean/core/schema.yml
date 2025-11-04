@@ -1,0 +1,200 @@
+version: 2
+
+models:
+  - name: silver_sessions
+    description: Cleaned and deduplicated session data with business logic
+    columns:
+      - name: session_key
+        description: Unique identifier for the session
+        tests:
+          - not_null
+          - unique
+
+      - name: session_name
+        description: Name of the session
+        tests:
+          - not_null
+
+      - name: session_category
+        description: Category of session (Race, Qualifying, Practice, Sprint, Other)
+        tests:
+          - accepted_values:
+              values: ['Race', 'Qualifying', 'Practice', 'Sprint', 'Other']
+
+      - name: location
+        description: Circuit location
+        tests:
+          - not_null
+
+      - name: year
+        description: Season year
+        tests:
+          - not_null
+
+      - name: session_duration_minutes
+        description: Duration of the session in minutes
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                where: "session_duration_minutes IS NOT NULL"
+
+      - name: updated_at
+        description: Timestamp when record was last updated
+        tests:
+          - not_null
+
+  - name: silver_drivers
+    description: Cleaned and deduplicated driver data
+    columns:
+      - name: session_key
+        description: Session identifier
+        tests:
+          - not_null
+
+      - name: driver_number
+        description: Driver's racing number
+        tests:
+          - not_null
+
+      - name: full_name
+        description: Driver's full name
+        tests:
+          - not_null
+
+      - name: team_name
+        description: Team name
+        tests:
+          - not_null
+
+      - name: team_category
+        description: Standardized team name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Red Bull Racing', 'Ferrari', 'Mercedes', 'McLaren', 'Alpine', 'Aston Martin', 'Williams', 'AlphaTauri', 'Alfa Romeo', 'Haas F1 Team', 'Other']
+
+      - name: updated_at
+        description: Timestamp when record was last updated
+        tests:
+          - not_null
+
+    tests:
+      - unique:
+          column_name: "(session_key || '-' || driver_number)"
+      - dbt_utils.expression_is_true:
+          expression: "driver_number > 0 AND driver_number < 100"
+          name: valid_driver_number_range
+
+  - name: silver_laps
+    description: Cleaned lap timing data with calculated metrics
+    columns:
+      - name: session_key
+        description: Session identifier
+        tests:
+          - not_null
+
+      - name: driver_number
+        description: Driver's racing number
+        tests:
+          - not_null
+
+      - name: lap_number
+        description: Lap number
+        tests:
+          - not_null
+
+      - name: lap_duration
+        description: Total lap time in seconds
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                where: "lap_duration IS NOT NULL AND is_valid_lap = TRUE"
+          - dbt_utils.expression_is_true:
+              expression: "< 300"
+              name: lap_duration_reasonable
+              config:
+                where: "lap_duration IS NOT NULL"
+
+      - name: is_valid_lap
+        description: Indicator if lap is valid for analysis
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: sector_completeness
+        description: Completeness of sector timing data
+        tests:
+          - accepted_values:
+              values: ['Complete', 'Partial', 'No Sectors']
+
+      - name: max_speed
+        description: Maximum speed achieved during the lap
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                where: "max_speed IS NOT NULL"
+          - dbt_utils.expression_is_true:
+              expression: "< 400"
+              name: max_speed_reasonable
+              config:
+                where: "max_speed IS NOT NULL"
+
+      - name: updated_at
+        description: Timestamp when record was last updated
+        tests:
+          - not_null
+
+    tests:
+      - unique:
+          column_name: "(session_key || '-' || driver_number || '-' || lap_number)"
+      - dbt_utils.expression_is_true:
+          expression: "lap_number > 0"
+          name: positive_lap_numbers
+
+  - name: silver_locations
+    description: Cleaned location telemetry data
+    columns:
+      - name: session_key
+        description: Session identifier
+        tests:
+          - not_null
+
+      - name: driver_number
+        description: Driver's racing number
+        tests:
+          - not_null
+
+      - name: date
+        description: Timestamp of the location data point
+        tests:
+          - not_null
+
+      - name: position_x
+        description: X coordinate position
+        tests:
+          - not_null
+
+      - name: position_y
+        description: Y coordinate position
+        tests:
+          - not_null
+
+      - name: position_z
+        description: Z coordinate position (elevation)
+
+      - name: distance_from_origin
+        description: Calculated distance from origin point
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                where: "distance_from_origin IS NOT NULL"
+
+      - name: updated_at
+        description: Timestamp when record was last updated
+        tests:
+          - not_null

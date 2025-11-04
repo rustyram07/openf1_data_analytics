@@ -1,0 +1,164 @@
+version: 2
+
+models:
+  - name: driver_session_summary
+    description: |
+      Aggregated performance metrics for each driver in each session.
+      Includes lap counts, timing statistics, sector performance, and consistency metrics.
+    columns:
+      - name: summary_key
+        description: Surrogate key for the summary
+        tests:
+          - not_null
+          - unique
+
+      - name: driver_name
+        description: Driver's full name
+        tests:
+          - not_null
+
+      - name: team_name
+        description: Driver's team
+        tests:
+          - not_null
+
+      - name: total_laps
+        description: Total number of laps completed
+        tests:
+          - not_null
+
+      - name: valid_laps
+        description: Number of valid laps (excluding pit laps, errors)
+        tests:
+          - not_null
+
+      - name: fastest_lap_time
+        description: Fastest valid lap time in seconds
+
+      - name: theoretical_best_lap
+        description: Sum of best sector times (may not be achievable)
+
+      - name: consistency_coefficient
+        description: Lap time standard deviation divided by mean (lower is more consistent)
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                where: "consistency_coefficient IS NOT NULL"
+
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "valid_laps <= total_laps"
+          name: valid_laps_not_exceed_total
+      - dbt_utils.expression_is_true:
+          expression: "theoretical_best_lap <= fastest_lap_time"
+          name: theoretical_best_faster_than_actual
+          config:
+            where: "theoretical_best_lap IS NOT NULL AND fastest_lap_time IS NOT NULL"
+
+  - name: session_leaderboard
+    description: |
+      Ranking of drivers by fastest lap time in each session.
+      Shows position, gap to fastest, and various performance indicators.
+    columns:
+      - name: leaderboard_key
+        description: Surrogate key for the leaderboard entry
+        tests:
+          - not_null
+          - unique
+
+      - name: position
+        description: Overall position in the session based on fastest lap
+        tests:
+          - not_null
+
+      - name: fastest_lap_time
+        description: Driver's fastest lap time in the session
+        tests:
+          - not_null
+
+      - name: delta_to_fastest
+        description: Time gap to the fastest lap in the session (seconds)
+        tests:
+          - not_null
+
+      - name: gap_percentage
+        description: Percentage gap to the fastest lap
+        tests:
+          - not_null
+
+      - name: is_fastest
+        description: Flag indicating if this driver set the fastest lap
+
+      - name: is_top_3
+        description: Flag indicating if driver finished in top 3
+        tests:
+          - accepted_values:
+              values: [true, false]
+
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "position > 0"
+          name: positive_position
+      - dbt_utils.expression_is_true:
+          expression: "delta_to_fastest >= 0"
+          name: non_negative_delta
+      - dbt_utils.expression_is_true:
+          expression: "gap_percentage >= 0"
+          name: non_negative_gap_percentage
+      - dbt_utils.expression_is_true:
+          expression: "CASE WHEN position = 1 THEN is_fastest = TRUE ELSE TRUE END"
+          name: position_1_is_fastest
+      - dbt_utils.expression_is_true:
+          expression: "CASE WHEN position <= 3 THEN is_top_3 = TRUE ELSE TRUE END"
+          name: top_3_position_flag_consistent
+
+  - name: team_performance
+    description: |
+      Aggregated team-level performance metrics across sessions.
+      Compares teams based on fastest laps, consistency, and top speeds.
+    columns:
+      - name: team_performance_key
+        description: Surrogate key for team performance record
+        tests:
+          - not_null
+          - unique
+
+      - name: team_name
+        description: Team name
+        tests:
+          - not_null
+
+      - name: drivers_count
+        description: Number of drivers for the team
+        tests:
+          - not_null
+
+      - name: team_fastest_lap
+        description: Fastest lap time achieved by any team driver
+        tests:
+          - not_null
+
+      - name: intra_team_gap
+        description: Gap between fastest and average fastest lap within team
+
+      - name: team_rank
+        description: Team's rank in the session based on fastest lap
+        tests:
+          - not_null
+
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "drivers_count > 0"
+          name: positive_driver_count
+      - dbt_utils.expression_is_true:
+          expression: "team_fastest_lap > 0"
+          name: positive_fastest_lap
+      - dbt_utils.expression_is_true:
+          expression: "team_rank > 0"
+          name: positive_team_rank
+      - dbt_utils.expression_is_true:
+          expression: "intra_team_gap >= 0"
+          name: non_negative_intra_team_gap
+          config:
+            where: "intra_team_gap IS NOT NULL"

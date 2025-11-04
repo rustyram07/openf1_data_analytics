@@ -1,0 +1,19 @@
+# This is a Databricks asset bundle definition for openf1_data_analytics.
+# The Databricks extension requires databricks.yml configuration file.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+
+bundle:
+  name: openf1_data_analytics
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-6095b2ae-cb87.cloud.databricks.com
+
+  ## Optionally, there could be 'staging' or 'prod' targets here.
+  #
+  # prod:
+  #   workspace:
+  #     host: https://dbc-6095b2ae-cb87.cloud.databricks.com

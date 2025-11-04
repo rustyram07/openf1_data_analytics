@@ -1,0 +1,39 @@
+name: dbt_f1_data_analytics
+version: '1.0' 
+
+profile: dbt_f1_data_analytics
+
+seed-paths: ["seeds"]
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+macro-paths: ["macros"]
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+seeds:
+  # Builds seeds into '<your_schema_name>_raw'
+  jaffle_shop:
+    +schema: raw
+
+models:
+  dbt_f1_data_analytics:
+    # Materialize staging models as views, and marts as tables
+    # Silver layer - cleaned and conformed data
+    silver_clean:
+      +materialized: incremental
+      +on_schema_change: "append_new_columns"
+      +file_format: delta
+      +schema: silver_clean
+
+    # Gold layer - business logic and aggregations
+    gold_analytics:
+      +materialized: table
+      +file_format: delta
+      +schema: gold_analytics
+
+snapshots:
+  dbt_f1_data_analytics:
+    +target_schema: silver_clean
+    +strategy: timestamp
+    +updated_at: updated_at

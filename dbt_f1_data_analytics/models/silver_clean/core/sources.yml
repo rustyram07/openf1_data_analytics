@@ -1,0 +1,87 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: Bronze layer raw data tables from OpenF1 API extraction
+    database: dev_f1_data_analytics
+    schema: bronze_raw
+    tables:
+      - name: bronze_sessions
+        description: Raw sessions data from OpenF1 API
+        columns:
+          - name: session_key
+            description: Unique identifier for the session
+            tests:
+              - not_null
+              - unique
+
+          - name: session_name
+            description: Name of the session (e.g., Race, Qualifying)
+
+          - name: date_start
+            description: Session start timestamp
+
+          - name: location
+            description: Circuit location
+
+      - name: bronze_drivers
+        description: Raw drivers data from OpenF1 API
+        columns:
+          - name: session_key
+            description: Session identifier
+            tests:
+              - not_null
+
+          - name: driver_number
+            description: Driver's racing number
+            tests:
+              - not_null
+
+          - name: full_name
+            description: Driver's full name
+
+          - name: team_name
+            description: Team name
+
+      - name: bronze_laps
+        description: Raw lap timing data from OpenF1 API
+        columns:
+          - name: session_key
+            description: Session identifier
+            tests:
+              - not_null
+
+          - name: driver_number
+            description: Driver's racing number
+            tests:
+              - not_null
+
+          - name: lap_number
+            description: Lap number
+            tests:
+              - not_null
+
+          - name: lap_duration
+            description: Total lap time in seconds
+
+      - name: bronze_locations
+        description: Raw location telemetry data from OpenF1 API
+        columns:
+          - name: session_key
+            description: Session identifier
+            tests:
+              - not_null
+
+          - name: driver_number
+            description: Driver's racing number
+            tests:
+              - not_null
+
+          - name: date
+            description: Timestamp of the location data point
+
+          - name: x
+            description: X coordinate position
+
+          - name: y
+            description: Y coordinate position
