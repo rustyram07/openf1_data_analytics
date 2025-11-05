@@ -2,23 +2,49 @@
 
 **A production-ready Medallion Architecture (Bronze → Silver → Gold) data warehouse for Formula 1 analytics using dbt, Databricks, and OpenF1 API**
 
+[![CI/CD](https://github.com/rustyram07/openf1_data_analytics/actions/workflows/dbt_ci_cd.yml/badge.svg)](https://github.com/rustyram07/openf1_data_analytics/actions/workflows/dbt_ci_cd.yml)
+[![Data Ingestion](https://github.com/rustyram07/openf1_data_analytics/actions/workflows/data_ingestion.yml/badge.svg)](https://github.com/rustyram07/openf1_data_analytics/actions/workflows/data_ingestion.yml)
+
 ---
 
-## Quick Start
+## 🚀 Quick Start (5 Minutes)
+
+### New User? Start Here!
 
 ```bash
-cd ~/Documents/openf1_data_analytics
-./load_2024_session.sh
+# 1. Clone repository
+git clone https://github.com/rustyram07/openf1_data_analytics.git
+cd openf1_data_analytics
+
+# 2. Set up environment
+python3.11 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# 3. Configure credentials
+cp .env.example .env
+# Edit .env with your Databricks credentials
+
+# 4. Test with sample data (no API needed!)
+python scripts/test_pipeline_local.py
 ```
 
-**That's it!** The script automatically:
-- ✓ Extracts data from OpenF1 API
-- ✓ Loads to Bronze layer (raw data)
-- ✓ Builds Silver layer (cleaned data)
-- ✓ Builds Gold layer (analytics)
-- ✓ Creates 14 tables ready for analysis
+**That's it!** The test script:
+- ✅ Loads sample 2024 Bahrain GP data
+- ✅ Creates Bronze tables (raw data)
+- ✅ Builds Silver tables (cleaned data)
+- ✅ Builds Gold tables (analytics)
+- ✅ Verifies data quality
 
-**Time:** 15-20 minutes | **Tables:** 14 | **Records:** ~200k per session
+**Time:** 5 minutes | **Tables:** 14 | **Sample Records:** 15
+
+---
+
+## 📖 Full Documentation
+
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Complete setup instructions
+- **[Data Ingestion Workflow](docs/INGESTION_WORKFLOW.md)** - API → Bronze automation
+- **[Test Data Guide](test_data/README.md)** - Sample data details
 
 ---
 
