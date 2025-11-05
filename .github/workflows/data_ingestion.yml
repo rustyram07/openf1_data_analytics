@@ -1,0 +1,194 @@
+name: F1 Data Ingestion Pipeline
+
+on:
+  # Scheduled runs during race weekends (every 2 hours on Fridays-Sundays)
+  schedule:
+    # Friday-Sunday: Every 2 hours (race weekend coverage)
+    - cron: '0 */2 * * 5-0'
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Extraction mode'
+        required: true
+        default: 'latest'
+        type: choice
+        options:
+          - latest      # Extract latest N sessions
+          - year        # Extract all sessions for a specific year
+          - oldest      # Extract oldest N sessions
+
+      num_sessions:
+        description: 'Number of sessions to extract (for latest/oldest mode)'
+        required: false
+        default: '1'
+        type: string
+
+      year:
+        description: 'Year to extract (for year mode)'
+        required: false
+        default: '2024'
+        type: string
+
+      trigger_dbt:
+        description: 'Trigger dbt transformation after ingestion?'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # =========================================================================
+  # INGESTION JOB: API → Landing Volume → Bronze Tables
+  # =========================================================================
+  ingest_f1_data:
+    name: Ingest F1 Data (API → Landing → Bronze)
+    runs-on: ubuntu-latest
+    outputs:
+      sessions_extracted: ${{ steps.extract.outputs.sessions_count }}
+      ingestion_success: ${{ steps.bronze_load.outcome }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Databricks connection
+        run: |
+          cd openf1_api_data_extractor/src/utils
+          python testconnection.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+
+      - name: Extract sessions (API → Landing Volume)
+        id: extract
+        run: |
+          cd openf1_api_data_extractor/src/ingestion
+
+          # Determine extraction mode
+          MODE="${{ github.event.inputs.mode || 'latest' }}"
+          NUM_SESSIONS="${{ github.event.inputs.num_sessions || '1' }}"
+          YEAR="${{ github.event.inputs.year || '2024' }}"
+
+          echo "🏁 Starting F1 data extraction"
+          echo "Mode: $MODE"
+
+          if [ "$MODE" == "year" ]; then
+            echo "Year: $YEAR"
+            python extract_sessions.py --mode year --year $YEAR
+          elif [ "$MODE" == "oldest" ]; then
+            echo "Sessions: $NUM_SESSIONS (oldest)"
+            python extract_sessions.py --order oldest --num-sessions $NUM_SESSIONS
+          else
+            echo "Sessions: $NUM_SESSIONS (latest)"
+            python extract_sessions.py --num-sessions $NUM_SESSIONS
+          fi
+
+          # Output for next step
+          echo "sessions_count=$NUM_SESSIONS" >> $GITHUB_OUTPUT
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+
+      - name: Load to Bronze tables (Landing Volume → Bronze)
+        id: bronze_load
+        run: |
+          cd openf1_api_data_extractor/dlt_bronze_load
+
+          echo "📊 Loading data from landing volume to bronze tables"
+          python run_batch_load.py
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+
+      - name: Verify bronze tables
+        run: |
+          cd openf1_api_data_extractor/dlt_bronze_load
+          python -c "
+          from load_to_bronze import BronzeLoader
+          loader = BronzeLoader()
+          loader.verify_tables()
+          "
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🏁 F1 Data Ingestion Pipeline Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Mode: ${{ github.event.inputs.mode || 'latest' }}"
+          echo "Sessions extracted: ${{ steps.extract.outputs.sessions_count || 'N/A' }}"
+          echo "Bronze load status: ${{ steps.bronze_load.outcome }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # =========================================================================
+  # DBT TRANSFORMATION JOB (Optional): Bronze → Silver → Gold
+  # =========================================================================
+  trigger_dbt_transformation:
+    name: Trigger dbt Transformation
+    needs: ingest_f1_data
+    if: |
+      needs.ingest_f1_data.outputs.ingestion_success == 'success' &&
+      (github.event.inputs.trigger_dbt != 'false')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger dbt workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('🚀 Triggering dbt transformation pipeline...');
+
+            try {
+              const result = await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'dbt_ci_cd.yml',
+                ref: 'main',
+                inputs: {
+                  target: 'prod'
+                }
+              });
+
+              console.log('✅ dbt workflow triggered successfully');
+            } catch (error) {
+              console.log('❌ Failed to trigger dbt workflow:', error.message);
+              throw error;
+            }
+
+  # =========================================================================
+  # NOTIFICATION JOB (Optional): Send notifications on failure
+  # =========================================================================
+  notify_on_failure:
+    name: Notify on Failure
+    needs: ingest_f1_data
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log failure
+        run: |
+          echo "❌ Data ingestion pipeline failed"
+          echo "Please check the workflow logs for details"
+          echo "Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

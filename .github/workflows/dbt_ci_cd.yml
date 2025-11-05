@@ -30,6 +30,9 @@ jobs:
     name: CI - Test against Stage
     runs-on: ubuntu-latest
     if: github.base_ref == 'dev' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'stage')
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -45,7 +48,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install dbt-databricks>=1.10.0
-          pip install dbt-utils
 
       - name: Verify dbt installation
         run: |
@@ -163,6 +165,9 @@ jobs:
     name: CD - Test against Prod
     runs-on: ubuntu-latest
     if: github.base_ref == 'main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod')
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -178,7 +183,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install dbt-databricks>=1.10.0
-          pip install dbt-utils
 
       - name: Verify dbt installation
         run: |
@@ -297,10 +301,20 @@ jobs:
           cd dbt_f1_data_analytics
           if [ -f "target/run_results.json" ]; then
             ERRORS=$(cat target/run_results.json | jq '[.results[] | select(.status == "error")] | length')
+            PASSED=$(cat target/run_results.json | jq '[.results[] | select(.status == "success")] | length')
+            SKIPPED=$(cat target/run_results.json | jq '[.results[] | select(.status == "skipped")] | length')
+
+            echo "📊 Test Results Summary:"
+            echo "  ✅ Passed: $PASSED"
+            echo "  ⏭️  Skipped: $SKIPPED"
+            echo "  ❌ Errors: $ERRORS"
+
             if [ "$ERRORS" -gt 0 ]; then
+              echo ""
               echo "❌ $ERRORS test(s) failed. Production deployment not recommended!"
               exit 1
             else
-              echo "✅ All tests passed. Safe to merge to production."
+              echo ""
+              echo "✅ All tests passed (including $SKIPPED skipped). Safe to merge to production."
             fi
           fi

@@ -60,16 +60,18 @@ SELECT
 
     -- Team category (for grouping)
     CASE
-        WHEN LOWER(team_name) LIKE '%red bull%' THEN 'Red Bull Racing'
+        WHEN LOWER(team_name) LIKE '%red bull%' AND LOWER(team_name) NOT LIKE '%rb%' AND LOWER(team_name) NOT LIKE '%racing bulls%' THEN 'Red Bull Racing'
         WHEN LOWER(team_name) LIKE '%ferrari%' THEN 'Ferrari'
         WHEN LOWER(team_name) LIKE '%mercedes%' THEN 'Mercedes'
         WHEN LOWER(team_name) LIKE '%mclaren%' THEN 'McLaren'
         WHEN LOWER(team_name) LIKE '%alpine%' THEN 'Alpine'
         WHEN LOWER(team_name) LIKE '%aston martin%' THEN 'Aston Martin'
         WHEN LOWER(team_name) LIKE '%williams%' THEN 'Williams'
-        WHEN LOWER(team_name) LIKE '%alphatauri%' OR LOWER(team_name) LIKE '%rb %' THEN 'AlphaTauri/RB'
-        WHEN LOWER(team_name) LIKE '%alfa romeo%' OR LOWER(team_name) LIKE '%sauber%' THEN 'Alfa Romeo/Sauber'
-        WHEN LOWER(team_name) LIKE '%haas%' THEN 'Haas'
+        WHEN LOWER(team_name) LIKE '%alphatauri%' THEN 'AlphaTauri'
+        WHEN LOWER(team_name) LIKE '%rb%' OR LOWER(team_name) LIKE '%racing bulls%' THEN 'RB'
+        WHEN LOWER(team_name) LIKE '%alfa romeo%' THEN 'Alfa Romeo'
+        WHEN LOWER(team_name) LIKE '%sauber%' OR LOWER(team_name) LIKE '%kick sauber%' THEN 'Sauber'
+        WHEN LOWER(team_name) LIKE '%haas%' THEN 'Haas F1 Team'
         ELSE 'Other'
     END AS team_category,
 
