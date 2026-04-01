@@ -84,6 +84,6 @@ tree==0.2.4
 typing-extensions==4.15.0
 typing-inspection==0.4.2
 tzdata==2025.2
-urllib3==2.5.0
+urllib3==2.6.3
 zipp==3.23.0
 zstandard==0.25.0
